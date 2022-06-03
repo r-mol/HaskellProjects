@@ -2,54 +2,68 @@
 module Project where
 
 import CodeWorld
+-- | Elevator button.
+data Button = Up | Down | Stop
 
--- | Some definition of state for FSM.
-data State = S0 | S1 | S2 | S3
+-- | Colors.
+data Colors = Red | Grey | White | Pink
 
--- | Some definition of action for FSM.
-type Action = Char
-
--- | Transition by an action to a new state.
-type Transition = (Action, State)
-
-flatten :: [[[a]]] -> [[a]]
-flatten [] = []
-flatten (l:ls) = l ++ flatten ls
-
-lang
-  :: s -- ˆ Initial state.
-  -> (s -> Bool) -- ˆ Is final state?
-  -> (s -> [(a, s)]) -- ˆ All transitions from a given state.
-  -> [[a]] -- ˆ All accepted action sequences.
-lang initialState isFinal transitionsOf 
-    | isFinal initialState = [[]]
-    | otherwise = flatten recursiveLangs 
-        where
-            transitions = transitionsOf initialState
-            recursiveLangs = map transitionLang transitions
-            transitionLang (a, s) = map (a:) (lang s isFinal transitionsOf)
-
-evenZeros :: [String]
-evenZeros = lang initialState isFinal transitions
-  where
-    -- | Initial state of an FSM.
-    initialState :: State
-    initialState = S1
-
-    -- | Predicate checking if a given state is final.
-    isFinal :: State -> Bool
-    isFinal S0 = True
-    isFinal _  = False
-    
-    -- | All transitions for a given state.
-    transitions :: State -> [Transition]
-    transitions S0 = []
-    transitions S1 = [('$', S0), ('0', S2)]
-    transitions S2 = [('1', S3), ('0', S1)]
-    transitions S3 = [('0', S1), ('1', S2)]
-    
-    
-main :: IO ()
-main = print(evenZeros)
+-- | Convert from data Colors to standart Color
+colors :: Colors -> Color
+colors Red   = red
+colors Grey  = grey
+colors White = white
+colors Pink  = pink
 
 
+arrow :: Colors -> Picture
+arrow color = colored (colors color) (solidPolygon([(0, -0.4), (0.7, -0.7), (0, 1), (-0.7, -0.7)]))
+
+
+rotatedArrow :: Point -> Double -> Colors-> Picture
+rotatedArrow (x, y) delta color = translated x y (rotated delta( arrow color))
+
+
+frameOfController :: Picture
+frameOfController = colored (light grey) (solidRectangle 1.9 4.4) <> colored black (solidRectangle 2 4.5)
+
+
+elevatorController :: Picture
+elevatorController = rotatedArrow (0, 1) 0 Grey <> rotatedArrow (0, -1) pi Grey <> frameOfController
+
+
+frameOfButton :: Picture
+frameOfButton = colored grey (solidCircle 1.2) <> colored black (solidCircle 1.4)
+
+
+buttonOfMoving :: Double -> Picture
+buttonOfMoving delta = rotatedArrow (0, 0) delta White <> frameOfButton
+
+
+buttonOfStoping :: Picture
+buttonOfStoping = colored red (lettering "Stop") <> frameOfButton
+
+
+-- | Render elevator button.
+drawButton :: Button ->Picture
+drawButton Up   = buttonOfMoving 0
+drawButton Down = buttonOfMoving pi
+drawButton Stop = buttonOfStoping
+
+-- | Draw several objects
+-- some distance apart from each other. 
+asSpaced
+  :: Double -- ˆ How far apart to draw objects. 
+  -> (a -> Picture) -- ˆ How to draw a single object. 
+  -> [a] -- ˆ A list of objects to draw.
+  -> Picture
+asSpaced distance drawFunction objects
+  | (length objects) == 0 = blank
+  | otherwise     = translated distance 0 (drawFunction (head objects)) <> (asSpaced (distance + 5) drawFunction (tail objects))
+  
+run :: IO ()
+run = solution1
+
+
+solution1 :: IO ()
+solution1 = drawingOf (elevatorController <> asSpaced 5 drawButton [Up,Down,Stop] )
