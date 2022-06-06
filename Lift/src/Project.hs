@@ -5,7 +5,7 @@ module Project where
 import CodeWorld
 
 -- | Colors.
-data Colors = Red | Grey | White | Pink
+data Colors = Red | Grey | White 
 
 -- | Elevator mode of operation.
 data State = UpMove | DownMove | Idle
@@ -16,56 +16,60 @@ data Action = UpButton | DownButton | StopButton
 -- | Transition by an action to a new state.
 type Transition = (Action, State)
 
+-- | System of the elevator.
 type System = Double
 
--- | Convert from data Colors to standart Color
+-- | Convert from data Colors to standart Color.
 colors :: Colors -> Color
 colors Red   = red
 colors Grey  = grey
 colors White = white
-colors Pink  = pink
 
-
+-- | The polygon for the sign of the elevator.
 sign :: Colors -> Picture
 sign color = colored (colors color) (solidPolygon([(0, -0.4), (0.7, -0.7), (0, 1), (-0.7, -0.7)]))
 
-
+-- | Rotated sign.
 rotatedSign :: Point -> Double -> Colors-> Picture
 rotatedSign (x, y) delta color = translated x y (rotated delta( sign color))
 
-
+-- | Frame of elevator controller.
 frameOfController :: Picture
 frameOfController = colored (light grey) (solidRectangle 1.9 4.4) <> colored black (solidRectangle 2 4.5)
 
-
+-- | Elevator controller.
 elevatorController :: Picture
 elevatorController = rotatedSign (0, 1) 0 Grey <> rotatedSign (0, -1) pi Grey <> frameOfController
 
+-- | Elevator controller for "Up mode".
 upController :: Picture
 upController = rotatedSign (0, 1) 0 Red <> elevatorController
 
+-- | Elevator controller for "Down mode".
 downController :: Picture
 downController = rotatedSign (0, -1) pi Red <> elevatorController
 
+-- | Frame of Button.
 frameOfButton :: Picture
 frameOfButton = colored grey (solidCircle 1.2) <> colored black (solidCircle 1.4)
 
-
+-- | Button with the rotated sign.
 buttonOfMoving :: Double -> Picture
 buttonOfMoving delta = rotatedSign (0, 0) delta White <> frameOfButton
 
-
+-- | Button with text "STOP".
 buttonOfStoping :: Picture
 buttonOfStoping = colored red (lettering "Stop") <> frameOfButton
 
+-- | Elevator.
 elevatorPicture :: System ->  Picture
 elevatorPicture height = translated 0 height (lettering "\x1F6B6" <> colored white (solidRectangle 2 4) <> colored black (solidRectangle 2.5 4.5))
 
--- | 
+-- | Draw the elevator.
 drawSystem :: System -> Picture
 drawSystem height = elevatorPicture height
 
-
+-- | Comparisson of the action.
 instance Eq Action where
   UpButton == UpButton = True
   DownButton == DownButton = True
@@ -85,12 +89,11 @@ asSpaced dis f (n:ns) = f n <> translated dis 0 (asSpaced dis f ns)
 -- | Apply an action (if any) to the current state
 -- of a finite state machine.
 applyAction
-  :: Maybe a        -- ˆ An action to apply (if any).
+  :: Maybe a          -- ˆ An action to apply (if any).
   -> (a -> a -> Bool) -- ˆ Action equality test.
   -> (s -> [(a, s)])  -- ˆ State transitions.
-  -> s             -- ˆ Current state.
-  -> s            -- ˆ New state (if possible).
-  
+  -> s                -- ˆ Current state.
+  -> s                -- ˆ New state (if possible).
 applyAction Nothing _isS _transitionOf state = state
 applyAction (Just action) isS transitionOf state
   | length transitions == 0 = state
@@ -103,35 +106,36 @@ applyAction (Just action) isS transitionOf state
       
 -- | Interactive finite state machine simulation.
 interactiveFSM
-  :: s                        -- ˆ Initial state.
+  :: s                  -- ˆ Initial state.
   -> (a -> a -> Bool)   -- ˆ Action equality test.
-  -> (s -> [(a, s)]) -- ˆ State transitions.
-  -> (Event -> Maybe a)      -- ˆ How to convert events into actions.
-  -> (s -> Picture)           -- ˆ How to draw states.
-  -> (a -> Picture)          -- ˆ How to draw actions.
+  -> (s -> [(a, s)])    -- ˆ State transitions.
+  -> (Event -> Maybe a) -- ˆ How to convert events into actions.
+  -> (s -> Picture)     -- ˆ How to draw states.
+  -> (a -> Picture)     -- ˆ How to draw actions.
   -> IO ()
 interactiveFSM initState isSame elevator converterOf drawState drawAction = 
   activityOf initState handleWorld renderWorld
     where
-      -- | Changing the world and position of the actor and the world
+      -- | Changing the position of the elevator in a world.
       handleWorld (KeyPress key) state = (applyAction (converterOf (KeyPress key)) isSame elevator state)
       handleWorld _anyEvent state = state
 
+      -- | Combine all drawing pictures in a one list.
       listOfPictures state = drawState state : map (drawAction . fst) (elevator state)
 
-      -- | Render actor and world with new data.
+      -- | Render states with new data.
       renderWorld state = asSpaced 3 id (listOfPictures state)
       
 interactiveSystem
-  :: s                        -- ˆ Initial state of a FSM.
-  -> (a -> a -> Bool)   -- ˆ FSM action equality test.
-  -> (s -> [(a, s)]) -- ˆ FSM State transitions.
-  -> (Event -> Maybe a)      -- ˆ How to convert events into actions.
-  -> (s -> Picture)           -- ˆ How to draw states.
-  -> (a -> Picture)          -- ˆ How to draw actions.
+  :: s                   -- ˆ Initial state of a FSM.
+  -> (a -> a -> Bool)    -- ˆ FSM action equality test.
+  -> (s -> [(a, s)])     -- ˆ FSM State transitions.
+  -> (Event -> Maybe a)  -- ˆ How to convert events into actions.
+  -> (s -> Picture)      -- ˆ How to draw states.
+  -> (a -> Picture)      -- ˆ How to draw actions.
   
-  -> system             -- ˆ System state, whose modes
-                        -- are modelled with FSM.
+  -> system              -- ˆ System state, whose modes
+                         -- are modelled with FSM.
 
   -> (Double -> s -> system -> system)
                          -- ˆ How system evolves with time.
@@ -140,15 +144,18 @@ interactiveSystem
 interactiveSystem initState isSame elevator converterOf drawState drawAction system changeByTime drawrSystem =
   activityOf (initState, system) handleSystem renderSystem
     where
+      -- | Changing the position of the elevator in a world.
       handleSystem (TimePassing dt) (state, newSystem) = ((applyAction (converterOf (TimePassing dt)) isSame elevator state), (changeByTime  dt state newSystem))
       handleSystem event (state, newSystem) = (applyAction (converterOf event) isSame elevator state, newSystem)
         
+      -- | Combine all drawing pictures in a one list.
       listOfPictures (state, newSystem) = drawrSystem newSystem : drawState state: map (drawAction . fst) (elevator state)
         
+      -- | Render elevator with new data.
       renderSystem (state, newSystem) = asSpaced 3 id (listOfPictures (state, newSystem))
 
 run :: IO ()
-run = solution3
+run = solution4
 
 solution1 :: IO ()
 solution1 = drawingOf (asSpaced 3 id (listOfPictures Idle))
@@ -165,6 +172,7 @@ solution1 = drawingOf (asSpaced 3 id (listOfPictures Idle))
     drawAction DownButton = buttonOfMoving pi
     drawAction StopButton = buttonOfStoping
 
+    -- | Combine all drawing pictures in a one list.
     listOfPictures state = drawState state : map (drawAction . fst) (elevator state)
 
     -- | All transitions for a given state.
@@ -180,7 +188,7 @@ solution2 = activityOf initState handleWorld renderWorld
     initState :: State
     initState = Idle
 
-    -- | Changing the world and position of the actor and the world
+    -- | Changing the position of the elevator in a world.
     handleWorld :: Event -> State -> State
     handleWorld (KeyPress key) state    
       | key == "Up"   = applyAction (Just UpButton) isSame elevator state
@@ -189,9 +197,12 @@ solution2 = activityOf initState handleWorld renderWorld
       | otherwise     = state
     handleWorld _anyEvent state = state
 
+    -- | Combine all drawing pictures in a one list.
+    listOfPictures state = drawState state : map (drawAction . fst) (elevator state)
+
     -- | Render actor and world with new data.
     renderWorld :: State -> Picture
-    renderWorld state = asSpaced 3 drawAction (map (fst) (elevator state))
+    renderWorld state = asSpaced 3 id (listOfPictures state)
     
     -- | Predicate checking if a given state is final.
     isSame :: Eq a => a -> a -> Bool
@@ -232,7 +243,7 @@ solution3 = interactiveFSM initState isSame elevator converter drawState drawAct
     elevator UpMove   = [(StopButton, Idle)]
     elevator DownMove = [(StopButton, Idle)]
 
-    -- | Changing the world and position of the actor and the world
+    -- | Changing the position of the elevator in a world.
     converter :: Event -> Maybe Action
     converter (KeyPress "Up")    = Just UpButton
     converter (KeyPress "Down")  = Just DownButton
@@ -268,13 +279,14 @@ solution4 = interactiveSystem initState isSame elevator converter drawState draw
     elevator UpMove   = [(StopButton, Idle)]
     elevator DownMove = [(StopButton, Idle)]
 
-    -- | Changing the world and position of the actor and the world
+    -- | Changing the position of the elevator in a world.
     converter :: Event -> Maybe Action
     converter (KeyPress "Up")    = Just UpButton
     converter (KeyPress "Down")  = Just DownButton
     converter (KeyPress " ")     = Just StopButton
     converter _anyEvent          = Nothing
 
+    -- | Change system by time passing.
     changeByTime :: Double -> State -> System -> System
     changeByTime dt UpMove heightOld = heightOld + dt
     changeByTime dt DownMove heightOld = heightOld - dt
@@ -291,3 +303,4 @@ solution4 = interactiveSystem initState isSame elevator converter drawState draw
     drawAction UpButton   = buttonOfMoving 0
     drawAction DownButton = buttonOfMoving pi
     drawAction StopButton = buttonOfStoping
+  
