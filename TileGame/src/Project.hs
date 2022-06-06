@@ -22,6 +22,18 @@ data Tile = Wall | Floor | Door Colors | Exit | Button Colors
 data Dir = R | L | U | D
 type Coords = (Double, Double)
 
+-- | Interaction state for 'world' with start screen.
+data WithStartScreen world
+  = StartScreen -- ˆ Start screen.
+  | GameOn world -- ˆ Game is on with 'world' state.
+
+-- | The type of an 'activityOf' function.
+type ActivityOf world 
+ = world
+ -> (Event -> world -> world)
+ -> (world -> Picture)
+ -> IO()
+
 
 -- | List of colors with coords for Buttons.
 buttons :: [(Colors, Coords)]
@@ -93,6 +105,14 @@ exitTile = tinySquare <> smallSquare <> mediumSquare <> bigSquare <> blackSquare
     blackSquare  = colored black (solidRectangle 0.95 0.95)
 
 
+-- | Picture of start screen
+startScreen :: Picture
+startScreen = text <> rule
+  where
+    text = scaled 3 3 (lettering "Escape the Room")
+    rule = translated 0 (-5) (lettering "[press Space to start]")
+  
+  
 -- | Check coordinates to draw the circle.
 circleByTiles :: Coords -> Integer -> Bool
 circleByTiles (x,y) radius = 
@@ -240,74 +260,67 @@ isEmpty = \list ->
     [] -> True
     _  -> False
     
+    
+-- | Test is it button.
 isButton :: Tile -> Bool
 isButton (Button _) = True
 isButton _          = False
 
+
+-- | Switch color of tile.
 colorOfTile :: Tile -> Color
 colorOfTile (Button c) = colors c
 colorOfTile (Door c)   = colors c
 
-startScreen :: Picture
-startScreen = 
-  (scaled 3 3 (lettering "Escape the Room"))
-  <> (translated 0 (-5) (lettering "[press Space to start]"))
-
--- | Interaction state for 'world' with start screen.
-data WithStartScreen world
-  = StartScreen -- ˆ Start screen.
-  | GameOn world -- ˆ Game is on with 'world' state.
-
-data ActivityOf world = ActivityOf -- think
-    world
-    (Event -> world -> world)
-    (world -> Picture)
 
 -- | Make 'activityOf' resettable on Esc.
 withReset :: ActivityOf world -> ActivityOf world
-withReset (ActivityOf initState handleWorld renderWorld)
-  = ActivityOf initState handleWorld' renderWorld
-  where handleWorld' (KeyPress "Esc") _  = initState
-        handleWorld' anyEvent state = handleWorld anyEvent state
+withReset inputActivityOf = outputActivityOf
+  where
+  outputActivityOf = (\initState handleWorld renderWorld -> inputActivityOf initState (handleWorld' initState handleWorld) renderWorld)
+    where 
+      handleWorld' initState handleWorld (KeyPress "Esc") _  = initState
+      handleWorld' initState handleWorld anyEvent state = handleWorld anyEvent state
 
 -- | Add start screen to 'activityOf'.
-withStartScreen :: ActivityOf s -> ActivityOf (WithStartScreen s) -- fix
-withStartScreen (ActivityOf initState handleWorld renderWorld)
-  = ActivityOf initState' handleWorld' renderWorld'
+withStartScreen :: ActivityOf (WithStartScreen world) -> ActivityOf world
+withStartScreen inputActivityOf = outputActivityOf
+  where
+  outputActivityOf = (\initState handleWorld renderWorld -> inputActivityOf initState' (handleWorld' initState handleWorld) (renderWorld' renderWorld))
       where
         initState' = StartScreen
 
-        handleWorld' (KeyPress " " ) StartScreen = GameOn initState
-        handleWorld' _ StartScreen               = StartScreen
-        handleWorld' event (GameOn state)        = GameOn (handleWorld event state)
+        handleWorld' initState handleWorld (KeyPress " " ) StartScreen = GameOn initState
+        handleWorld' initState handleWorld _ StartScreen               = StartScreen
+        handleWorld' initState handleWorld event (GameOn state)        = GameOn (handleWorld event state)
 
-        renderWorld' StartScreen = startScreen
-        renderWorld' (GameOn state) = renderWorld state
-  
-runActivity :: ActivityOf world -> IO ()
-runActivity (ActivityOf initState handleWorld renderWorld)
-  = activityOf initState handleWorld renderWorld
+        renderWorld' renderWorld StartScreen  = startScreen
+        renderWorld' renderWorld (GameOn state)  = renderWorld state
+    
 
 
 run :: IO ()
-run = do 
-  runActivity (withReset (withStartScreen tileGame))
-    where
-    
-      tileGame :: ActivityOf State
-      tileGame = ActivityOf initialWorld handleWorld renderWorld
+run = (withReset (withStartScreen tileGame)) initialWorld handleWorld renderWorld
+    where 
+      -- | Tile Game
+      tileGame :: ActivityOf world
+      tileGame initWorld handle render = activityOf initWorld handle render
+      
       
       -- | Size of the next level
       initialSize :: Double
       initialSize = 21
     
+    
       -- | Map of the game.
       initialMap :: (State -> Tile)
       initialMap = tileMap2
     
+    
       -- | Start of the actor.
       initialWorld :: State
       initialWorld = State (-2, 9) []
+      
       
       -- | Changing the world and position of the actor and the world
       handleWorld :: Event -> State -> State
@@ -318,6 +331,7 @@ run = do
       handleWorld (KeyPress "Left") state  = tryMove L state initialMap
       handleWorld (KeyPress "Enter") state = withOpenDoors state
       handleWorld _anyEvent state          = state
+     
      
       -- | Render actor and world with new data.
       renderWorld :: State -> Picture
