@@ -1,8 +1,7 @@
+{-# OPTIONS_GHC -Wall -fno-warn-type-defaults #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Project where
 
-
-{-# LANGUAGE OverloadedStrings #-}
 import CodeWorld
 
 -- | A tile (poor man's representation):
@@ -83,7 +82,7 @@ buttonTile :: Color -> Picture
 buttonTile c = coloredCircle <> yellowSquare
   where
      coloredCircle = colored c (solidCircle 0.4) 
-     yellowSquare = colored yellow (solidRectangle 0.95 0.95)
+     yellowSquare  = colored yellow (solidRectangle 0.95 0.95)
 
 
 -- | A picture of a door tile with colored circle or size 0.95x0.95 and radius 0.4.
@@ -91,7 +90,7 @@ doorTile :: Color -> Picture
 doorTile c = coloredCircle <> blackSquare
   where
     coloredCircle = colored c (solidCircle 0.4) 
-    blackSquare = colored black (solidRectangle 0.95 0.95)
+    blackSquare   = colored black (solidRectangle 0.95 0.95)
 
 
 -- | A picture of a exit tile or size 0.95x0.95.
@@ -279,8 +278,8 @@ withReset inputActivityOf = outputActivityOf
   where
   outputActivityOf = (\initState handleWorld renderWorld -> inputActivityOf initState (handleWorld' initState handleWorld) renderWorld)
     where 
-      handleWorld' initState handleWorld (KeyPress "Esc") _  = initState
-      handleWorld' initState handleWorld anyEvent state = handleWorld anyEvent state
+      handleWorld' initState _handleWorld (KeyPress "Esc") _  = initState
+      handleWorld' _initState handleWorld anyEvent state      = handleWorld anyEvent state
 
 -- | Add start screen to 'activityOf'.
 withStartScreen :: ActivityOf (WithStartScreen world) -> ActivityOf world
@@ -290,11 +289,11 @@ withStartScreen inputActivityOf = outputActivityOf
       where
         initState' = StartScreen
 
-        handleWorld' initState handleWorld (KeyPress " " ) StartScreen = GameOn initState
-        handleWorld' initState handleWorld _ StartScreen               = StartScreen
-        handleWorld' initState handleWorld event (GameOn state)        = GameOn (handleWorld event state)
+        handleWorld' initState _handleWorld (KeyPress " " ) StartScreen = GameOn initState
+        handleWorld' _initState _handleWorld _ StartScreen              = StartScreen
+        handleWorld' _initState handleWorld event (GameOn state)        = GameOn (handleWorld event state)
 
-        renderWorld' renderWorld StartScreen  = startScreen
+        renderWorld' _renderWorld StartScreen    = startScreen
         renderWorld' renderWorld (GameOn state)  = renderWorld state
     
 
@@ -344,18 +343,17 @@ run = (withReset (withStartScreen tileGame)) initialWorld handleWorld renderWorl
       -- | Check if it is button then work with it color
       withOpenDoors :: State -> State
       withOpenDoors (State (x, y) cs)
-        | (isButton (initialMap (State (x, y) cs))) == False = (State (x, y) cs)
+        | (not (isButton (initialMap (State (x, y) cs)))) = (State (x, y) cs)
         | otherwise = (State (x, y) (openOrClose (colorOfTile (initialMap (State (x, y) cs))) cs))
       
       
       -- | Close doors if their color is in a list and remove it from list, otherwise add color into the list
       openOrClose ::  Color -> [Color] -> [Color]
       openOrClose c cs 
-        | oneOf c cs == True = remove c cs
+        | c `oneOf` cs = remove c cs
         | otherwise          = c : cs
     
     
       -- | Update world by time.
       updateWorld :: Double -> State -> State
       updateWorld _dt = id
-
