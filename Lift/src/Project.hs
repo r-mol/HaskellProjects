@@ -35,27 +35,42 @@ rotatedSign (x, y) delta color = translated x y (rotated delta( sign color))
 
 -- | Frame of elevator controller.
 frameOfController :: Picture
-frameOfController = colored (light grey) (solidRectangle 1.9 4.4) <> colored black (solidRectangle 2 4.5)
-
+frameOfController = front <> background
+  where
+    front      = colored (light grey) (solidRectangle 1.9 4.4)
+    background = colored black (solidRectangle 2 4.5)
+    
 -- | Elevator controller.
 elevatorController :: Picture
-elevatorController = rotatedSign (0, 1) 0 Grey <> rotatedSign (0, -1) pi Grey <> frameOfController
+elevatorController = upBackSign <> downBackSign <> frameOfController
+  where
+    upBackSign   = rotatedSign (0, 1) 0 Grey
+    downBackSign = rotatedSign (0, -1) pi Grey
 
 -- | Elevator controller for "Up mode".
 upController :: Picture
-upController = rotatedSign (0, 1) 0 Red <> elevatorController
+upController = upMode <> elevatorController
+  where
+    upMode = rotatedSign (0, 1) 0 Red
 
 -- | Elevator controller for "Down mode".
 downController :: Picture
-downController = rotatedSign (0, -1) pi Red <> elevatorController
+downController = downMode <> elevatorController
+  where
+    downMode = rotatedSign (0, -1) pi Red
 
 -- | Frame of Button.
 frameOfButton :: Picture
-frameOfButton = colored grey (solidCircle 1.2) <> colored black (solidCircle 1.4)
+frameOfButton = frontCircle <> background
+  where
+    frontCircle = colored grey (solidCircle 1.2)
+    background  = colored black (solidCircle 1.4)
 
 -- | Button with the rotated sign.
 buttonOfMoving :: Double -> Picture
-buttonOfMoving delta = rotatedSign (0, 0) delta White <> frameOfButton
+buttonOfMoving delta = signOfMoving <> frameOfButton
+  where
+    signOfMoving  = rotatedSign (0, 0) delta White
 
 -- | Button with text "STOP".
 buttonOfStoping :: Picture
@@ -63,8 +78,18 @@ buttonOfStoping = colored red (lettering "Stop") <> frameOfButton
 
 -- | Elevator.
 elevatorPicture :: System ->  Picture
-elevatorPicture height = translated 0 height (lettering "\x1F6B6" <> colored white (solidRectangle 2 4) <> colored black (solidRectangle 2.5 4.5))
-
+elevatorPicture height = developer <> life <> goals
+  where
+    developer = translated 0 height (scaled 3 3(lettering "\x1F6B6"))
+    life = translated 0 height (colored white (solidRectangle 2 4) <> colored black (solidRectangle 2.5 4.5))
+    
+    
+goals :: Picture
+goals = dreamJob <> nonono
+  where
+    dreamJob = translated 0 8 (lettering "GetShop.TV")
+    nonono   = translated 0 (-8) (lettering "Position on JAVA")
+    
 -- | Draw the elevator.
 drawSystem :: System -> Picture
 drawSystem height = elevatorPicture height
