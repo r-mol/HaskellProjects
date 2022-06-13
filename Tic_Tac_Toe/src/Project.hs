@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 module Project where
 
 import CodeWorld
@@ -54,20 +55,80 @@ drawBoard board = picturesOfX <> picturesOfO <> picturesOfN
     positionsOf cell = concat(map (\(xs,y) -> zip (xs) (replicateOfYs xs y)) (coordinatesBoard cell))
     coordinatesBoard cell = (zip (map (positions cell) board) [0,-1..])
     replicateOfYs xs y = (replicate (length xs) y)
+ 
 
 positions :: Eq a => a -> [a] -> [Int]
 positions x xs = [i | (x',i) <- zip xs [0..], x==x']
+
+-- | Run a tic-tac-toe game with a sample starting board.
+ticTacToe :: Board -> IO ()
+ticTacToe board = activityOf board handleGame drawBoard
+  where
+    height = length board
+    width  = length (head board)
+    
+    -- | Handle mouse clicks to put marks.
+    handleGame :: Event -> Board -> Board
+    handleGame (PointerPress mouse) 
+      | availCoords (pointToCoords mouse) = putMarkAt (pointToCoords mouse)
+      | otherwise = id
+    handleGame _ = id
+
+    -- | Convert mouse position into board coordinates.
+    pointToCoords :: Point -> (Int, Int)
+    pointToCoords (x, y) = (round x, round y)
+    
+    availCoords :: (Int, Int) -> Bool
+    availCoords (x, y)
+      | x >= 0 && x < width && y <= 0 &&  y > (-height) = True
+      | otherwise = False
+
+
+-- | Try place a mark a given position on a board.
+-- The type of mark is determined automatically.
+-- When the game is over (a winner exists) no marks are placed. 
+putMarkAt :: (Int, Int) -> Board -> Board
+putMarkAt (dx, dy) board = firstPart ++ [middle] ++ secondPart
+  where
+    firstPart = take (-dy) board
+    middle = (updateAt dx board (fromMaybe [] (lookup dy zipBoard)))
+    secondPart = drop ((-dy) + 1) board
+    zipBoard = zip [0,-1..] board
+    
+changeMark :: Board -> Cell
+changeMark board = if os < xs then Just O else Just X
+     where
+        os = length (filter (== (Just O)) ps)
+        xs = length (filter (== (Just X)) ps)
+        ps = concat board
+
+
+
+-- | Try update an element at a given position in a list.
+updateAt :: Int -> Board -> [Cell] -> [Cell]
+updateAt dx board cells = insertAt (changeMark board) dx cells
+
+insertAt ::(Num t, Eq t, Eq a) => Maybe a -> t -> [Maybe a] -> [Maybe a]
+insertAt _newElement _i [] = []                     
+insertAt newElement 0 (a:as) 
+  | a == Nothing = newElement : as
+  | otherwise = a : as
+insertAt newElement i (a:as) = a : insertAt newElement (i - 1) as
+
 
 -- | Determine a winner in a game of tic-tac-toe (if exists).
 winner :: Board -> Maybe Mark
 winner board = getWinner (filter isLongStreak (concatMap streaks allLines))
   where
     allLines = rows ++ columns ++ diagonals
+    
     rows = board
     columns = transpose rows
     diagonals = leftDiagonals ++ rightDiagonals
+    
     leftDiagonals = leftDiagonalsOf rows
     rightDiagonals = leftDiagonalsOf (reverse rows)
+    
     leftDiagonalsOf b = leftTopDiagonalsOf b ++ leftBottomDiagonalsOf b
     leftTopDiagonalsOf = transpose . zipWith drop [0..]
     leftBottomDiagonalsOf = leftTopDiagonalsOf . transpose
@@ -89,4 +150,5 @@ getWinner :: [(Int, a)] -> Maybe a
 getWinner = listToMaybe . map snd
 
 run :: IO()
-run = drawingOf (drawBoard (initBoard (5,4)))
+run = ticTacToe (initBoard (5,4))
+  -- drawingOf (drawBoard(putMarkAt (4,-3) (initBoard (5,4))))
